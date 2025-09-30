@@ -4,6 +4,7 @@
 #include <memory>
 #include <map>
 #include <Eigen/Dense>
+#include <random>
 
 #include <pinocchio/fwd.hpp>
 #include <pinocchio/multibody/model.hpp>
@@ -174,36 +175,56 @@ int main() {
     Eigen::VectorXd dq_test = Eigen::VectorXd::Ones(nq) * 1.3;
     Eigen::VectorXd ddq_test = Eigen::VectorXd::Ones(nq) * 0.5;
 
-    std::cout << "--- Comparing Analytical and Numerical Jacobians ---" << std::endl;
+    std::cout << "--- Comparing Analytical and Numerical Jacobians (Single Test Case) ---" << std::endl;
     std::cout << "Number of joints: " << nq << std::endl;
     std::cout << "q_test:   " << q_test.transpose() << std::endl;
     std::cout << "dq_test:  " << dq_test.transpose() << std::endl;
     std::cout << "ddq_test: " << ddq_test.transpose() << std::endl;
     std::cout << "----------------------------------------------------" << std::endl;
 
-    // --- Compute Jacobians ---
+    // --- Compute Jacobians for the single test case ---
     Eigen::MatrixXd J_analytical = compute_ee_state_jacobian_analytical(model, frame_id, q_test, dq_test, ddq_test);
     Eigen::MatrixXd J_numerical = compute_ee_state_jacobian_numerical(model, frame_id, q_test, dq_test, ddq_test);
     Eigen::MatrixXd J_error = J_analytical - J_numerical;
 
-    // --- Print Results ---
-    // Set Eigen print options for better readability
-    Eigen::IOFormat CommaInitFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", ", ", "", "", " << ", ";");
-
+    // --- Print Results for the single test case ---
     std::cout << "\nANALYTICAL JACOBIAN (19 x " << 3 * nq << "):\n" << J_analytical << std::endl;
     std::cout << "\n----------------------------------------------------\n" << std::endl;
     std::cout << "NUMERICAL JACOBIAN (19 x " << 3 * nq << "):\n" << J_numerical<< std::endl;
     std::cout << "\n----------------------------------------------------\n" << std::endl;
 
-    // Filter out very small values for cleaner error printing
     auto formatted_error = J_error.unaryExpr([](double v) {
         return std::abs(v) < 1e-6 ? 0.0 : v;
     });
 
     std::cout << "ERROR (Analytical - Numerical):\n" << formatted_error << std::endl;
     std::cout << "\n----------------------------------------------------\n" << std::endl;
-    std::cout << "Max absolute error: " << J_error.cwiseAbs().maxCoeff() << std::endl;
+    std::cout << "Max absolute error for single test: " << J_error.cwiseAbs().maxCoeff() << std::endl;
+    std::cout << "\n====================================================\n" << std::endl;
+
+    // --- Perform N random iterations ---
+    const int N = 100;
+    std::cout << "--- Running " << N << " Random State Tests ---" << std::endl;
+
+    for (int i = 0; i < N; ++i) {
+        // Create random q, dq, and ddq
+        Eigen::VectorXd q_rand = Eigen::VectorXd::Random(nq) * 3.14;
+        Eigen::VectorXd dq_rand = Eigen::VectorXd::Random(nq) * 10.0;
+        Eigen::VectorXd ddq_rand = Eigen::VectorXd::Random(nq) * 10.0;
+
+        // Perform the calculations
+        Eigen::MatrixXd J_analytical_rand = compute_ee_state_jacobian_analytical(model, frame_id, q_rand, dq_rand, ddq_rand);
+        Eigen::MatrixXd J_numerical_rand = compute_ee_state_jacobian_numerical(model, frame_id, q_rand, dq_rand, ddq_rand);
+        Eigen::MatrixXd J_error_rand = J_analytical_rand - J_numerical_rand;
+
+        // Print the largest value for the iteration
+        double max_error = J_error_rand.cwiseAbs().maxCoeff();
+        if (max_error > 2e-5) {
+            std::cout << "Iteration " << i + 1 << ": Max absolute error = " << max_error << std::endl;
+        }
+    }
+    std::cout << "----------------------------------------" << std::endl;
+
 
     return 0;
 }
-
