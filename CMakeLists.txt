@@ -3,7 +3,6 @@ project(AnalyticDiffEEState)
 
 set(CMAKE_CXX_STANDARD 14)
 
-
 find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(urdfdom_headers REQUIRED)

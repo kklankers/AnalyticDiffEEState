@@ -85,17 +85,13 @@ Eigen::MatrixXd compute_ee_state_jacobian_analytical(
     const Eigen::Vector3d& v = frame_vel.linear();
     const Eigen::Vector3d& w = frame_vel.angular();
 
+    const pinocchio::Motion frame_acc = pinocchio::getFrameAcceleration(model, data, frame_id, pinocchio::LOCAL_WORLD_ALIGNED);
+    const Eigen::Vector3d& dv = frame_acc.linear();
+    const Eigen::Vector3d& dw = frame_acc.angular();
+
     // The classical velocity derivative requires a correction term
     Eigen::MatrixXd dvc_dq = dv_dq.topRows(3) + pinocchio::skew(w) * J.topRows(3);
-    const Eigen::Ref<const Eigen::MatrixXd> dw_dq = dv_dq.bottomRows(3);
-
-    // The classical acceleration derivative requires a more complex correction term
-    Eigen::MatrixXd d_wxv_dq = Eigen::MatrixXd::Zero(3, nv);
-    for (int i = 0; i < nv; ++i) {
-        Eigen::Vector3d dw_dq_i = dw_dq.col(i);
-        d_wxv_dq.col(i) = pinocchio::skew(dw_dq_i) * v + pinocchio::skew(w) * dvc_dq.col(i);
-    }
-    Eigen::MatrixXd dac_dq = da_dq.topRows(3) - d_wxv_dq;
+    Eigen::MatrixXd dac_dq = da_dq.topRows(3) + pinocchio::skew(dw) * J.topRows(3);
 
     // --- Assemble the full Jacobian ---
     // Partials with respect to q
@@ -109,7 +105,7 @@ Eigen::MatrixXd compute_ee_state_jacobian_analytical(
               -q_current.x(), -q_current.y(), -q_current.z();
     jacobian.block(3, 0, 4, nv) = 0.5 * E_quat * J.bottomRows<3>();
     jacobian.block(7, 0, 3, nv) = dvc_dq;
-    jacobian.block(10, 0, 3, nv) = dw_dq;
+    jacobian.block(10, 0, 3, nv) = dv_dq.bottomRows(3);
     jacobian.block(13, 0, 3, nv) = dac_dq;
     jacobian.block(16, 0, 3, nv) = da_dq.bottomRows(3);
 
